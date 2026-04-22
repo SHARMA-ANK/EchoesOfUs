@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  families     Family[]
+  sessions     Session[]
+}
+
+model Family {
+  id                  String    @id @default(cuid())
+  adminUserId         String
+  familyName          String
+  isPublishedToGlobal Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  adminUser           User      @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+  profiles            Profile[]
+
+  @@index([adminUserId])
+  @@index([isPublishedToGlobal])
+}
+
+model Profile {
+  id             String    @id @default(cuid())
+  familyId       String
+  name           String
+  age            Int
+  relation       String?
+  shareSlug      String    @unique @default(cuid())
+  magicLinkToken String    @unique @default(cuid())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  chapters       Chapter[]
+  family         Family    @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
+  @@index([magicLinkToken])
+}
+
+model Chapter {
+  id            String   @id @default(cuid())
+  profileId     String
+  chapterNumber Int
+  title         String
+  transcript    String?
+  summary       String?
+  audioUrl      String?
+  voiceId       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  profile       Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, chapterNumber])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
