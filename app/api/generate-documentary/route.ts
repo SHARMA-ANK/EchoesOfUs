@@ -9,11 +9,10 @@ export async function POST(req: NextRequest) {
     try {
         const formData = await req.formData();
         const conversationId = formData.get("conversationId") as string;
-        const audioBlob = formData.get("audio") as Blob;
 
-        if (!conversationId || !audioBlob) {
+        if (!conversationId) {
             return NextResponse.json(
-                { error: "conversationId and audio are required" },
+                { error: "conversationId is required" },
                 { status: 400 }
             );
         }
@@ -88,12 +87,19 @@ export async function POST(req: NextRequest) {
         console.log("Generating memoir script with Gemini...");
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
-        const prompt = `You are a skilled memoir writer. Turn the following interview transcript into a beautiful, nostalgic, first-person narrative. Write 1-2 paragraphs maximum. Use warm, emotional language.
+        const prompt = `You are a world-class documentary scriptwriter in the tradition of Ken Burns and Errol Morris. Your task is to transform the following interview transcript into a cinematic, third-person documentary narration script.
+
+Rules:
+- Write in the third person (e.g. "She grew up...", "He remembers the day...", "Their story begins...")
+- Use a warm, reverent, and cinematic tone — as if a professional narrator is speaking over beautiful archival footage
+- Write 2-3 short paragraphs maximum
+- Do NOT use first-person ("I", "my", "me")
+- Draw out the emotional core of the story — the details that make this person's life universal and profound
 
 Interview transcript:
 ${transcript}
 
-Write the memoir narrative:`;
+Write the documentary narration script:`;
 
         const result = await model.generateContent(prompt);
         const response = result.response;
@@ -101,34 +107,14 @@ Write the memoir narrative:`;
 
         console.log("Generated script:", script.substring(0, 100) + "...");
 
-        // Step 3: Clone the user's voice using ElevenLabs Instant Voice Cloning
-        console.log("Cloning voice from audio blob...");
-
-        // Use REST API directly for voice cloning
-        const formDataVoice = new FormData();
-        formDataVoice.append("name", "Echoes User " + Date.now());
-        formDataVoice.append("files", audioBlob, "user-voice.webm");
-        formDataVoice.append("description", "User's cloned voice for documentary narration");
-
-        const voiceResponse = await fetch("https://api.elevenlabs.io/v1/voices/add", {
-            method: "POST",
-            headers: {
-                "xi-api-key": process.env.ELEVENLABS_API_KEY || "",
-            },
-            body: formDataVoice,
-        });
-
-        if (!voiceResponse.ok) {
-            throw new Error(`Voice cloning failed: ${await voiceResponse.text()}`);
+        // Step 3: Generate narration using the professional narrator voice
+        console.log("Generating narration with narrator voice...");
+        const narratorVoiceId = process.env.NEXT_PUBLIC_NARRATOR_VOICE_ID;
+        if (!narratorVoiceId) {
+            throw new Error("NEXT_PUBLIC_NARRATOR_VOICE_ID is not set");
         }
 
-        const voiceData = await voiceResponse.json();
-        const voiceId = voiceData.voice_id;
-        console.log("Voice cloned successfully:", voiceId);
-
-        // Step 4: Generate narration using the cloned voice
-        console.log("Generating narration with cloned voice...");
-        const audio = await elevenlabs.textToSpeech.convert(voiceId, {
+        const audio = await elevenlabs.textToSpeech.convert(narratorVoiceId, {
             text: script,
             modelId: "eleven_multilingual_v2",
         });
@@ -147,7 +133,7 @@ Write the memoir narrative:`;
         return new Response(narrationBuffer, {
             headers: {
                 "Content-Type": "audio/mpeg",
-                "X-Voice-Id": voiceId,
+                "X-Voice-Id": narratorVoiceId,
                 "X-Script": Buffer.from(script).toString("base64"),
                 "X-Transcript": Buffer.from(transcript).toString("base64"),
             },

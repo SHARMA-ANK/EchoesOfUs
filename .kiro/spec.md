@@ -63,3 +63,9 @@ We are pivoting to a "Family Archive" architecture to ensure privacy and structu
 3. **App generates a Magic Link** for Grandpa Joe.
 4. **Grandpa Joe clicks the link** on his iPad, bypassing login, and talks to the ElevenLabs Agent to record a chapter.
 5. **Admin reviews the audio** and can click "Publish Family to The Human Archive" so the world can hear Grandpa Joe's story.
+
+
+## Documentary Processing Pipeline
+1. **Interview State:** WebRTC connection for the live interview (same as before).
+2. **Scriptwriting (LLM):** Send the interview transcript to the LLM. The LLM must write a cinematic, 3rd-person documentary script. (e.g., instead of "I grew up in New York", it should write, "For Arthur, growing up in New York was a time of wonder...")
+3. **Text-to-Speech (Storyteller):** Skip voice cloning entirely. Send the LLM script directly to the ElevenLabs TTS API using the `NEXT_PUBLIC_NARRATOR_VOICE_ID`.
