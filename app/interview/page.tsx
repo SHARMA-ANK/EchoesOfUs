@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useRef, useEffect } from "react";
+import { useCallback, useState, useRef, useEffect, Suspense } from "react";
 import { Conversation } from "@elevenlabs/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -10,7 +10,7 @@ const WAVEFORM_BARS = [16, 24, 40, 56, 40, 64, 80, 56, 48, 72, 56, 32, 64, 80, 4
 type MicError = "denied" | "unavailable" | null;
 type ConversationStatus = "disconnected" | "connecting" | "connected";
 
-export default function InterviewPage() {
+function InterviewPageInner() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const profileId = searchParams.get("profileId");
@@ -464,5 +464,13 @@ export default function InterviewPage() {
         }
       `}</style>
         </div>
+    );
+}
+
+export default function InterviewPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-[#1A1612] flex items-center justify-center"><div className="text-[#D4A853]">Loading...</div></div>}>
+            <InterviewPageInner />
+        </Suspense>
     );
 }
