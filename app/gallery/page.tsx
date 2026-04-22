@@ -13,6 +13,7 @@ const CHAPTERS = [
 
 export default function GalleryPage() {
     const audioRef = useRef<HTMLAudioElement>(null);
+    const musicRef = useRef<HTMLAudioElement>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [hasDocumentary, setHasDocumentary] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
@@ -20,10 +21,17 @@ export default function GalleryPage() {
 
     // Load documentary audio from sessionStorage on mount
     useEffect(() => {
-        const audioUrl = sessionStorage.getItem("documentaryAudio");
-        if (audioUrl && audioRef.current) {
-            audioRef.current.src = audioUrl;
+        const voiceUrl = sessionStorage.getItem("voiceUrl") ?? sessionStorage.getItem("documentaryAudio");
+        const musicUrl = sessionStorage.getItem("musicUrl");
+
+        if (voiceUrl && audioRef.current) {
+            audioRef.current.src = voiceUrl;
             setHasDocumentary(true);
+        }
+        if (musicUrl && musicRef.current) {
+            musicRef.current.src = musicUrl;
+            musicRef.current.volume = 0.15;
+            musicRef.current.loop = true;
         }
     }, []);
 
@@ -34,7 +42,11 @@ export default function GalleryPage() {
 
         const updateTime = () => setCurrentTime(audio.currentTime);
         const updateDuration = () => setDuration(audio.duration);
-        const handleEnded = () => setIsPlaying(false);
+        const handleEnded = () => {
+            setIsPlaying(false);
+            musicRef.current?.pause();
+            if (musicRef.current) musicRef.current.currentTime = 0;
+        };
 
         audio.addEventListener("timeupdate", updateTime);
         audio.addEventListener("loadedmetadata", updateDuration);
@@ -51,8 +63,10 @@ export default function GalleryPage() {
         if (!audioRef.current) return;
         if (isPlaying) {
             audioRef.current.pause();
+            musicRef.current?.pause();
         } else {
             audioRef.current.play();
+            musicRef.current?.play();
         }
         setIsPlaying(!isPlaying);
     };
@@ -301,8 +315,9 @@ export default function GalleryPage() {
                 </button>
             </main>
 
-            {/* Audio element for documentary playback */}
+            {/* Audio elements for documentary playback */}
             <audio ref={audioRef} />
+            <audio ref={musicRef} />
         </div>
     );
 }

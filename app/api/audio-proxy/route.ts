@@ -26,12 +26,17 @@ export async function GET(req: NextRequest) {
         // Get the audio data
         const audioBuffer = await response.arrayBuffer();
 
+        // Use the content-type from Vercel Blob if available, fallback to audio/mpeg
+        const contentType = response.headers.get("content-type") || "audio/mpeg";
+
         // Return the audio with proper headers
         return new NextResponse(audioBuffer, {
             status: 200,
             headers: {
-                "Content-Type": "audio/mpeg",
-                "Cache-Control": "public, max-age=31536000, immutable",
+                "Content-Type": contentType,
+                "Content-Length": audioBuffer.byteLength.toString(),
+                "Accept-Ranges": "bytes",
+                "Cache-Control": "private, max-age=3600",
             },
         });
     } catch (error) {

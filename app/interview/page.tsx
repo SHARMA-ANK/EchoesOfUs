@@ -166,51 +166,15 @@ export default function InterviewPage() {
                 throw new Error("Documentary generation failed");
             }
 
-            // Get the generated audio
-            const audioBuffer = await response.arrayBuffer();
-            const voiceId = response.headers.get("X-Voice-Id") || "";
-            const scriptBase64 = response.headers.get("X-Script") || "";
-            const transcriptBase64 = response.headers.get("X-Transcript") || "";
-            const script = scriptBase64 ? atob(scriptBase64) : "";
-            const transcript = transcriptBase64 ? atob(transcriptBase64) : "";
+            // Parse the new JSON response { voiceUrl, musicUrl, script, transcript, voiceId }
+            const data = await response.json();
+            const { voiceUrl, musicUrl, script, transcript, voiceId } = data;
 
             // If we have a profileId, save the chapter to the database
             if (profileId) {
-                console.log("Uploading audio to Vercel Blob...");
+                console.log("Saving chapter with voiceUrl:", voiceUrl);
 
-                // Upload audio to Vercel Blob
-                const uploadFormData = new FormData();
-                const audioFile = new File([audioBuffer], "audio.mp3", { type: "audio/mpeg" });
-                uploadFormData.append("audio", audioFile);
-                uploadFormData.append("profileId", profileId);
-
-                // Get next chapter number
-                const profileRes = await fetch(`/api/profiles/${profileId}`);
-                const profileData = await profileRes.json();
-                const nextChapterNumber = (profileData.chapters?.length || 0) + 1;
-                uploadFormData.append("chapterNumber", nextChapterNumber.toString());
-
-                const uploadResponse = await fetch("/api/upload-audio", {
-                    method: "POST",
-                    body: uploadFormData,
-                });
-
-                if (!uploadResponse.ok) {
-                    throw new Error("Failed to upload audio");
-                }
-
-                const { url: audioUrl } = await uploadResponse.json();
-                console.log("Audio uploaded successfully:", audioUrl);
-
-                // Save chapter to database with permanent URL
-                console.log("Saving chapter with data:", {
-                    profileId,
-                    title: `Chapter ${new Date().toLocaleDateString()}`,
-                    transcriptLength: transcript.length,
-                    summaryLength: script.substring(0, 200).length,
-                    audioUrl,
-                });
-
+                // voiceUrl already uploaded by the API — save chapter directly
                 const chapterResponse = await fetch("/api/chapters", {
                     method: "POST",
                     headers: {
@@ -222,7 +186,7 @@ export default function InterviewPage() {
                         title: `Chapter ${new Date().toLocaleDateString()}`,
                         transcript,
                         summary: script.substring(0, 200) + "...",
-                        audioUrl,
+                        audioUrl: voiceUrl,
                         voiceId,
                     }),
                 });
@@ -240,7 +204,8 @@ export default function InterviewPage() {
                 router.push(`/profiles/${profileId}`);
             } else {
                 // Store in sessionStorage for the gallery page (legacy flow)
-                sessionStorage.setItem("documentaryAudio", URL.createObjectURL(new Blob([audioBuffer], { type: "audio/mpeg" })));
+                sessionStorage.setItem("voiceUrl", voiceUrl);
+                sessionStorage.setItem("musicUrl", musicUrl ?? "");
                 sessionStorage.setItem("documentaryScript", script);
                 sessionStorage.setItem("voiceId", voiceId);
                 router.push("/gallery");

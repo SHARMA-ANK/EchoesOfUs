@@ -69,3 +69,5 @@ We are pivoting to a "Family Archive" architecture to ensure privacy and structu
 1. **Interview State:** WebRTC connection for the live interview (same as before).
 2. **Scriptwriting (LLM):** Send the interview transcript to the LLM. The LLM must write a cinematic, 3rd-person documentary script. (e.g., instead of "I grew up in New York", it should write, "For Arthur, growing up in New York was a time of wonder...")
 3. **Text-to-Speech (Storyteller):** Skip voice cloning entirely. Send the LLM script directly to the ElevenLabs TTS API using the `NEXT_PUBLIC_NARRATOR_VOICE_ID`.
+
+Hd8mWkf5kvyBZB0S7yXU

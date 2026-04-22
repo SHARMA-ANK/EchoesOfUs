@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { put } from "@vercel/blob";
 
 const elevenlabs = new ElevenLabsClient();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
@@ -96,47 +97,98 @@ Rules:
 - Do NOT use first-person ("I", "my", "me")
 - Draw out the emotional core of the story — the details that make this person's life universal and profound
 
-Interview transcript:
-${transcript}
+Also generate a music_prompt: a 5-word description of the musical mood that best accompanies this story (e.g. "soft emotional piano chords", "warm nostalgic orchestral strings").
 
-Write the documentary narration script:`;
+Respond ONLY with a valid JSON object in this exact format, no markdown, no code fences:
+{"script": "...", "music_prompt": "..."}
+
+Interview transcript:
+${transcript}`;
 
         const result = await model.generateContent(prompt);
         const response = result.response;
-        const script = response.text();
+        const rawText = response.text().trim();
+
+        // Parse structured JSON output
+        let script: string;
+        let musicPrompt: string;
+        try {
+            const parsed = JSON.parse(rawText);
+            script = parsed.script;
+            musicPrompt = parsed.music_prompt;
+            if (!script || !musicPrompt) throw new Error("Missing keys");
+        } catch {
+            // Fallback: treat entire response as script if JSON parsing fails
+            console.warn("Gemini did not return valid JSON, falling back to raw text");
+            script = rawText;
+            musicPrompt = "soft emotional cinematic score";
+        }
 
         console.log("Generated script:", script.substring(0, 100) + "...");
 
-        // Step 3: Generate narration using the professional narrator voice
-        console.log("Generating narration with narrator voice...");
+        // Step 3: Generate narration (TTS) and background music in parallel
+        console.log("Generating narration and music in parallel...");
         const narratorVoiceId = process.env.NEXT_PUBLIC_NARRATOR_VOICE_ID;
         if (!narratorVoiceId) {
             throw new Error("NEXT_PUBLIC_NARRATOR_VOICE_ID is not set");
         }
 
-        const audio = await elevenlabs.textToSpeech.convert(narratorVoiceId, {
-            text: script,
-            modelId: "eleven_multilingual_v2",
-        });
+        const [ttsAudio, musicAudio] = await Promise.all([
+            // TTS: narrator voice
+            elevenlabs.textToSpeech.convert(narratorVoiceId, {
+                text: script,
+                modelId: "eleven_multilingual_v2",
+            }),
+            // Music: generate from mood prompt (~30 seconds)
+            elevenlabs.music.compose({
+                prompt: musicPrompt,
+                musicLengthMs: 30000,
+            }),
+        ]);
 
-        // Convert ReadableStream to Buffer
-        const reader = audio.getReader();
-        const chunks: Uint8Array[] = [];
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            chunks.push(value);
+        // Convert TTS stream to Buffer
+        const ttsChunks: Uint8Array[] = [];
+        for await (const chunk of ttsAudio as any) {
+            ttsChunks.push(typeof chunk === "string" ? Buffer.from(chunk, "binary") : chunk);
         }
-        const narrationBuffer = Buffer.concat(chunks);
+        const narrationBuffer = Buffer.concat(ttsChunks);
 
-        // Return the audio as a response
-        return new Response(narrationBuffer, {
-            headers: {
-                "Content-Type": "audio/mpeg",
-                "X-Voice-Id": narratorVoiceId,
-                "X-Script": Buffer.from(script).toString("base64"),
-                "X-Transcript": Buffer.from(transcript).toString("base64"),
-            },
+        // Convert music stream to Buffer
+        const musicChunks: Uint8Array[] = [];
+        for await (const chunk of musicAudio as any) {
+            musicChunks.push(typeof chunk === "string" ? Buffer.from(chunk, "binary") : chunk);
+        }
+        const musicBuffer = Buffer.concat(musicChunks);
+
+        console.log(`Narration buffer size: ${narrationBuffer.length} bytes`);
+        console.log(`Music buffer size: ${musicBuffer.length} bytes`);
+
+        // Step 4: Upload both audio files to Vercel Blob in parallel
+        console.log("Uploading audio files to Vercel Blob...");
+        const timestamp = Date.now();
+
+        const [voiceBlob, musicBlob] = await Promise.all([
+            put(`documentaries/voice-${timestamp}.mp3`, narrationBuffer, {
+                access: "private",
+                contentType: "audio/mpeg",
+            }),
+            put(`documentaries/music-${timestamp}.mp3`, musicBuffer, {
+                access: "private",
+                contentType: "audio/mpeg",
+            }),
+        ]);
+
+        console.log("Voice URL:", voiceBlob.url);
+        console.log("Music URL:", musicBlob.url);
+
+        // Return JSON with both URLs
+        return NextResponse.json({
+            voiceUrl: voiceBlob.url,
+            musicUrl: musicBlob.url,
+            script,
+            transcript,
+            musicPrompt,
+            voiceId: narratorVoiceId,
         });
     } catch (error) {
         console.error("Documentary generation error:", error);
