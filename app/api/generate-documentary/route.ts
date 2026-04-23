@@ -98,9 +98,10 @@ Rules:
 - Draw out the emotional core of the story — the details that make this person's life universal and profound
 
 Also generate a music_prompt: a 5-word description of the musical mood that best accompanies this story (e.g. "soft emotional piano chords", "warm nostalgic orchestral strings").
+Also generate a chapter_title: a 2-word evocative title that captures the essence of this story (e.g. "Childhood Echoes", "Mountain Roots", "Quiet Courage").
 
 Respond ONLY with a valid JSON object in this exact format, no markdown, no code fences:
-{"script": "...", "music_prompt": "..."}
+{"script": "...", "music_prompt": "...", "chapter_title": "..."}
 
 Interview transcript:
 ${transcript}`;
@@ -112,6 +113,7 @@ ${transcript}`;
         // Parse structured JSON output — strip markdown code fences if present
         let script: string;
         let musicPrompt: string;
+        let chapterTitle: string;
         try {
             const cleaned = rawText
                 .replace(/^```json\s*/i, "")
@@ -121,12 +123,13 @@ ${transcript}`;
             const parsed = JSON.parse(cleaned);
             script = parsed.script;
             musicPrompt = parsed.music_prompt;
+            chapterTitle = parsed.chapter_title || "";
             if (!script || !musicPrompt) throw new Error("Missing keys");
         } catch {
-            // Fallback: treat entire response as script if JSON parsing fails
             console.warn("Gemini did not return valid JSON, falling back to raw text");
             script = rawText.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
             musicPrompt = "soft emotional cinematic score";
+            chapterTitle = "";
         }
 
         console.log("Generated script:", script.substring(0, 100) + "...");
@@ -193,6 +196,7 @@ ${transcript}`;
             script,
             transcript,
             musicPrompt,
+            chapterTitle,
             voiceId: narratorVoiceId,
         });
     } catch (error) {

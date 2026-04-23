@@ -168,7 +168,7 @@ function InterviewPageInner() {
 
             // Parse the new JSON response { voiceUrl, musicUrl, script, transcript, voiceId }
             const data = await response.json();
-            const { voiceUrl, musicUrl, script, transcript, voiceId } = data;
+            const { voiceUrl, musicUrl, script, transcript, voiceId, chapterTitle } = data;
 
             // If we have a profileId, save the chapter to the database
             if (profileId) {
@@ -183,7 +183,7 @@ function InterviewPageInner() {
                     body: JSON.stringify({
                         token: magicLinkToken,
                         profileId,
-                        title: `Chapter ${new Date().toLocaleDateString()}`,
+                        title: chapterTitle || `Chapter ${new Date().toLocaleDateString()}`,
                         transcript,
                         summary: script.substring(0, 200),
                         audioUrl: voiceUrl,
