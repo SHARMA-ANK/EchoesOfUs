@@ -109,18 +109,23 @@ ${transcript}`;
         const response = result.response;
         const rawText = response.text().trim();
 
-        // Parse structured JSON output
+        // Parse structured JSON output — strip markdown code fences if present
         let script: string;
         let musicPrompt: string;
         try {
-            const parsed = JSON.parse(rawText);
+            const cleaned = rawText
+                .replace(/^```json\s*/i, "")
+                .replace(/^```\s*/i, "")
+                .replace(/```\s*$/i, "")
+                .trim();
+            const parsed = JSON.parse(cleaned);
             script = parsed.script;
             musicPrompt = parsed.music_prompt;
             if (!script || !musicPrompt) throw new Error("Missing keys");
         } catch {
             // Fallback: treat entire response as script if JSON parsing fails
             console.warn("Gemini did not return valid JSON, falling back to raw text");
-            script = rawText;
+            script = rawText.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
             musicPrompt = "soft emotional cinematic score";
         }
 

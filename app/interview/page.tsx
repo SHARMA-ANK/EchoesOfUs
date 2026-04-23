@@ -185,7 +185,7 @@ function InterviewPageInner() {
                         profileId,
                         title: `Chapter ${new Date().toLocaleDateString()}`,
                         transcript,
-                        summary: script.substring(0, 200) + "...",
+                        summary: script.substring(0, 200),
                         audioUrl: voiceUrl,
                         voiceId,
                     }),

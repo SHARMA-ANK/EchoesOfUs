@@ -21,15 +21,20 @@ export default function GalleryPage() {
 
     // Load documentary audio from sessionStorage on mount
     useEffect(() => {
+        const proxyUrl = (url: string) =>
+            url.includes(".private.blob.vercel-storage.com")
+                ? `/api/audio-proxy?url=${encodeURIComponent(url)}`
+                : url;
+
         const voiceUrl = sessionStorage.getItem("voiceUrl") ?? sessionStorage.getItem("documentaryAudio");
         const musicUrl = sessionStorage.getItem("musicUrl");
 
         if (voiceUrl && audioRef.current) {
-            audioRef.current.src = voiceUrl;
+            audioRef.current.src = proxyUrl(voiceUrl);
             setHasDocumentary(true);
         }
         if (musicUrl && musicRef.current) {
-            musicRef.current.src = musicUrl;
+            musicRef.current.src = proxyUrl(musicUrl);
             musicRef.current.volume = 0.15;
             musicRef.current.loop = true;
         }
