@@ -6,6 +6,7 @@ import { useAudioPlayer } from "./AudioPlayerProvider";
 interface AudioPlayerProps {
     chapterId: string;
     audioUrl: string;
+    musicUrl?: string | null;
     chapterTitle: string;
 }
 
@@ -17,8 +18,9 @@ interface AudioPlayerState {
     error: string | null;
 }
 
-export default function AudioPlayer({ chapterId, audioUrl, chapterTitle }: AudioPlayerProps) {
+export default function AudioPlayer({ chapterId, audioUrl, musicUrl, chapterTitle }: AudioPlayerProps) {
     const audioRef = useRef<HTMLAudioElement>(null);
+    const musicRef = useRef<HTMLAudioElement>(null);
     const { currentPlayingId, setCurrentPlayingId } = useAudioPlayer();
 
     const [isPlaying, setIsPlaying] = useState(false);
@@ -38,6 +40,7 @@ export default function AudioPlayer({ chapterId, audioUrl, chapterTitle }: Audio
     };
 
     const proxiedAudioUrl = getProxiedUrl(audioUrl);
+    const proxiedMusicUrl = musicUrl ? getProxiedUrl(musicUrl) : null;
 
     // Format time in MM:SS format
     const formatTime = (seconds: number): string => {
@@ -94,24 +97,24 @@ export default function AudioPlayer({ chapterId, audioUrl, chapterTitle }: Audio
         try {
             if (isPlaying) {
                 audio.pause();
+                musicRef.current?.pause();
                 setIsPlaying(false);
             } else {
-                // Pause other players
                 if (currentPlayingId && currentPlayingId !== chapterId) {
                     setCurrentPlayingId(chapterId);
                 }
-
-                // Ensure volume is set
                 audio.volume = 1.0;
                 audio.muted = false;
-
                 setIsLoading(true);
                 await audio.play();
+                if (musicRef.current) {
+                    musicRef.current.volume = 0.15;
+                    musicRef.current.loop = true;
+                    musicRef.current.play().catch(() => { });
+                }
                 setIsPlaying(true);
                 setCurrentPlayingId(chapterId);
                 setIsLoading(false);
-
-                console.log("[AudioPlayer] Playback started successfully");
             }
         } catch (err) {
             console.error("[AudioPlayer] Play error:", err);
@@ -144,6 +147,10 @@ export default function AudioPlayer({ chapterId, audioUrl, chapterTitle }: Audio
             setIsPlaying(false);
             setCurrentTime(0);
             setCurrentPlayingId(null);
+            if (musicRef.current) {
+                musicRef.current.pause();
+                musicRef.current.currentTime = 0;
+            }
         };
 
         const handleTimeUpdate = () => {
@@ -244,6 +251,7 @@ export default function AudioPlayer({ chapterId, audioUrl, chapterTitle }: Audio
     return (
         <div className="mt-4 space-y-3">
             <audio ref={audioRef} src={proxiedAudioUrl} preload="metadata" />
+            {proxiedMusicUrl && <audio ref={musicRef} src={proxiedMusicUrl} preload="none" />}
 
             {/* Progress Bar */}
             <div className="w-full">

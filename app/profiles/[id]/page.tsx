@@ -20,6 +20,7 @@ interface Chapter {
     chapterNumber: number;
     title: string;
     audioUrl: string | null;
+    musicUrl: string | null;
 }
 
 export default function ProfileDashboardPage() {
@@ -185,6 +186,7 @@ export default function ProfileDashboardPage() {
                                             <AudioPlayer
                                                 chapterId={chapter.id}
                                                 audioUrl={chapter.audioUrl}
+                                                musicUrl={chapter.musicUrl}
                                                 chapterTitle={chapter.title}
                                             />
                                         ) : (

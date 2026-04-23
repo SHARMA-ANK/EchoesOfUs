@@ -7,7 +7,7 @@ import { requireAuth, requireProfileOwnership } from "@/lib/auth/middleware";
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { token, profileId: bodyProfileId, title, transcript, summary, audioUrl, voiceId } = body;
+        const { token, profileId: bodyProfileId, title, transcript, summary, audioUrl, musicUrl, voiceId } = body;
 
         // Extract token from body or query param
         const magicLinkToken = token || req.nextUrl.searchParams.get("token");
@@ -71,6 +71,7 @@ export async function POST(req: NextRequest) {
                 transcript: transcript || null,
                 summary: summary || null,
                 audioUrl: audioUrl || null,
+                musicUrl: musicUrl || null,
                 voiceId: voiceId || null,
             },
         });

@@ -187,6 +187,7 @@ function InterviewPageInner() {
                         transcript,
                         summary: script.substring(0, 200),
                         audioUrl: voiceUrl,
+                        musicUrl,
                         voiceId,
                     }),
                 });
