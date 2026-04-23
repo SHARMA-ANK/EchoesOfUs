@@ -20,6 +20,29 @@ function InterviewPageInner() {
     const [isProcessing, setIsProcessing] = useState(false);
     const [status, setStatus] = useState<ConversationStatus>("disconnected");
     const [isSpeaking, setIsSpeaking] = useState(false);
+    const [tokenValid, setTokenValid] = useState<boolean | null>(magicLinkToken ? null : true);
+    const [resolvedProfileId, setResolvedProfileId] = useState<string | null>(profileId);
+    const [profileName, setProfileName] = useState<string | null>(null);
+
+    // Use refs so handleEnd always has the latest values regardless of closure
+    const resolvedProfileIdRef = useRef<string | null>(profileId);
+    const magicLinkTokenRef = useRef<string | null>(magicLinkToken);
+
+    // Validate magic link token on mount
+    useEffect(() => {
+        if (!magicLinkToken) return;
+        fetch(`/api/interview/validate-token?token=${magicLinkToken}`)
+            .then((r) => r.json())
+            .then((data) => {
+                setTokenValid(data.valid);
+                if (data.valid) {
+                    setResolvedProfileId(data.profileId);
+                    resolvedProfileIdRef.current = data.profileId;
+                    setProfileName(data.profileName);
+                }
+            })
+            .catch(() => setTokenValid(false));
+    }, [magicLinkToken]);
 
     // Conversation and MediaRecorder refs
     const conversationRef = useRef<Conversation | null>(null);
@@ -140,8 +163,8 @@ function InterviewPageInner() {
 
         if (!conversationId || audioBlob.size === 0) {
             console.error("Missing conversationId or audio");
-            if (profileId) {
-                router.push(`/profiles/${profileId}`);
+            if (resolvedProfileIdRef.current) {
+                router.push(`/profiles/${resolvedProfileIdRef.current}`);
             } else {
                 router.push("/gallery");
             }
@@ -170,9 +193,9 @@ function InterviewPageInner() {
             const data = await response.json();
             const { voiceUrl, musicUrl, script, transcript, voiceId, chapterTitle } = data;
 
-            // If we have a profileId, save the chapter to the database
-            if (profileId) {
-                console.log("Saving chapter with voiceUrl:", voiceUrl);
+            // If we have a resolvedProfileId, save the chapter to the database
+            if (resolvedProfileIdRef.current) {
+                console.log("Saving chapter with voiceUrl:", voiceUrl, "profileId:", resolvedProfileIdRef.current);
 
                 // voiceUrl already uploaded by the API — save chapter directly
                 const chapterResponse = await fetch("/api/chapters", {
@@ -181,8 +204,8 @@ function InterviewPageInner() {
                         "Content-Type": "application/json",
                     },
                     body: JSON.stringify({
-                        token: magicLinkToken,
-                        profileId,
+                        token: magicLinkTokenRef.current,
+                        profileId: resolvedProfileIdRef.current,
                         title: chapterTitle || `Chapter ${new Date().toLocaleDateString()}`,
                         transcript,
                         summary: script.substring(0, 200),
@@ -201,8 +224,12 @@ function InterviewPageInner() {
                 const savedChapter = await chapterResponse.json();
                 console.log("Chapter saved successfully:", savedChapter);
 
-                // Redirect to profile dashboard
-                router.push(`/profiles/${profileId}`);
+                // If accessed via magic link (no session), go to success page
+                if (magicLinkTokenRef.current && !profileId) {
+                    router.push(`/interview/success`);
+                } else {
+                    router.push(`/profiles/${resolvedProfileIdRef.current}`);
+                }
             } else {
                 // Store in sessionStorage for the gallery page (legacy flow)
                 sessionStorage.setItem("voiceUrl", voiceUrl);
@@ -216,7 +243,7 @@ function InterviewPageInner() {
             setMicError("unavailable");
             setIsProcessing(false);
         }
-    }, [router, profileId]);
+    }, [router, profileId, resolvedProfileId, magicLinkToken]);
 
     const handleMicToggle = useCallback(() => {
         if (isConnected) {
@@ -239,6 +266,25 @@ function InterviewPageInner() {
     }, []);
 
     // Show processing screen
+    if (tokenValid === null) {
+        return (
+            <div className="min-h-screen bg-[#1A1612] flex items-center justify-center">
+                <div className="text-[#D4A853] text-xl" style={{ fontFamily: "var(--font-eb-garamond)" }}>Verifying your link...</div>
+            </div>
+        );
+    }
+
+    if (tokenValid === false) {
+        return (
+            <div className="min-h-screen bg-[#1A1612] flex flex-col items-center justify-center gap-6 px-6 text-center">
+                <h1 className="text-4xl italic text-[#F5ECD7]" style={{ fontFamily: "var(--font-eb-garamond)" }}>Invalid or Expired Link</h1>
+                <p className="text-[#F5ECD7]/50 max-w-sm" style={{ fontFamily: "var(--font-inter)" }}>
+                    This interview link is no longer valid. Please ask your family admin to generate a new one.
+                </p>
+            </div>
+        );
+    }
+
     if (isProcessing) {
         return (
             <div className="film-grain vignette relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-[#1A1612]">

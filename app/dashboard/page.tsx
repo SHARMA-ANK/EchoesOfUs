@@ -8,6 +8,89 @@ interface Chapter { id: string; title: string; }
 interface Profile { id: string; name: string; age: number; relation: string | null; chapters: Chapter[]; }
 interface Family { id: string; familyName: string; isPublishedToGlobal: boolean; profiles: Profile[]; }
 
+function ProfileCard({ profile }: { profile: Profile }) {
+    const [magicLink, setMagicLink] = useState<string | null>(null);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    const handleGenerateLink = async () => {
+        setIsGenerating(true);
+        try {
+            const res = await fetch(`/api/profiles/${profile.id}/generate-link`, { method: "POST" });
+            if (res.ok) {
+                const data = await res.json();
+                setMagicLink(data.magicLink);
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    const handleCopy = () => {
+        if (!magicLink) return;
+        navigator.clipboard.writeText(magicLink);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <div className="p-6 rounded-xl group" style={{ background: "rgba(212, 168, 83, 0.05)", border: "1px solid rgba(212, 168, 83, 0.1)" }}>
+            <Link href={`/profiles/${profile.id}`} className="block mb-4">
+                <h3 className="text-xl text-[#F5ECD7] mb-1 group-hover:text-[#D4A853] transition-colors" style={{ fontFamily: "var(--font-eb-garamond)" }}>{profile.name}</h3>
+                <p className="text-[#F5ECD7]/50 text-sm mb-2" style={{ fontFamily: "var(--font-inter)" }}>
+                    {profile.age} years old{profile.relation && ` • ${profile.relation}`}
+                </p>
+                <p className="text-[#D4A853] text-xs uppercase tracking-wider" style={{ fontFamily: "var(--font-inter)" }}>
+                    {profile.chapters.length} {profile.chapters.length === 1 ? "Chapter" : "Chapters"}
+                </p>
+            </Link>
+
+            {/* Generate Interview Link */}
+            <div className="mt-4 space-y-2">
+                <button
+                    onClick={handleGenerateLink}
+                    disabled={isGenerating}
+                    className="w-full py-2 px-4 rounded-lg text-xs uppercase tracking-widest transition-all duration-300 disabled:opacity-50"
+                    style={{
+                        fontFamily: "var(--font-inter)",
+                        background: "rgba(212, 168, 83, 0.15)",
+                        border: "1px solid rgba(212, 168, 83, 0.3)",
+                        color: "#D4A853",
+                    }}
+                >
+                    {isGenerating ? "Generating..." : "🔗 Create Interview Link"}
+                </button>
+
+                {magicLink && (
+                    <div className="flex items-center gap-2">
+                        <input
+                            readOnly
+                            value={magicLink}
+                            className="flex-1 text-xs px-3 py-2 rounded-lg bg-black/30 text-[#F5ECD7]/70 border border-[#D4A853]/20 outline-none truncate"
+                            style={{ fontFamily: "var(--font-inter)" }}
+                            onClick={(e) => (e.target as HTMLInputElement).select()}
+                        />
+                        <button
+                            onClick={handleCopy}
+                            className="px-3 py-2 rounded-lg text-xs transition-all duration-300 flex-shrink-0"
+                            style={{
+                                fontFamily: "var(--font-inter)",
+                                background: copied ? "rgba(212, 168, 83, 0.3)" : "rgba(212, 168, 83, 0.1)",
+                                border: "1px solid rgba(212, 168, 83, 0.3)",
+                                color: "#D4A853",
+                            }}
+                        >
+                            {copied ? "✓" : "Copy"}
+                        </button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
 export default function DashboardPage() {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(true);
@@ -159,15 +242,7 @@ export default function DashboardPage() {
                                 ) : (
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                         {family.profiles.map((profile) => (
-                                            <Link key={profile.id} href={`/profiles/${profile.id}`} className="p-6 rounded-xl hover:bg-white/5 transition-all duration-300 group" style={{ background: "rgba(212, 168, 83, 0.05)", border: "1px solid rgba(212, 168, 83, 0.1)" }}>
-                                                <h3 className="text-xl text-[#F5ECD7] mb-1 group-hover:text-[#D4A853] transition-colors" style={{ fontFamily: "var(--font-eb-garamond)" }}>{profile.name}</h3>
-                                                <p className="text-[#F5ECD7]/50 text-sm mb-3" style={{ fontFamily: "var(--font-inter)" }}>
-                                                    {profile.age} years old{profile.relation && ` • ${profile.relation}`}
-                                                </p>
-                                                <p className="text-[#D4A853] text-xs uppercase tracking-wider" style={{ fontFamily: "var(--font-inter)" }}>
-                                                    {profile.chapters.length} {profile.chapters.length === 1 ? "Chapter" : "Chapters"}
-                                                </p>
-                                            </Link>
+                                            <ProfileCard key={profile.id} profile={profile} />
                                         ))}
                                     </div>
                                 )}
